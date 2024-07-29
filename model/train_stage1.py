@@ -78,12 +78,12 @@ def parse_args(argv):
     # )
 
     parser.add_argument(
-        "-td", "--testing_Data", type=str, default='/media/imaginarium/12T/Dataset/validation80/feature_maps',
+        "-td", "--testing_Data", type=str, default='/media/imaginarium/12T/Dataset/V1/valid/',
         help="testing dataset"
     )
 
     parser.add_argument(
-        "-d", "--Training_Data", type=str, default='/media/imaginarium/12T/Dataset/train80/feature_maps',
+        "-d", "--Training_Data", type=str, default='/media/imaginarium/12T/Dataset/V1/train/',
         help="Training dataset"
     )
     parser.add_argument("-e", "--epochs", default=1000000, type=int, help="Number of epochs (default: %(default)s)", )
