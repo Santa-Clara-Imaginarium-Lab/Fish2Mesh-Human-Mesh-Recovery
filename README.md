@@ -14,7 +14,4 @@ conda activate pose
 conda install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia
 pip install opencv-python
 pip install matplotlib
-pip install moviepy
-pip install chardet
-pip install scipy
 ```
