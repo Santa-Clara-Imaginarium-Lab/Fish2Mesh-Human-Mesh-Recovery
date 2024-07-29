@@ -18,7 +18,7 @@ import skimage.io
 import skimage.transform
 import skimage.color
 import skimage
-from D3Pose import D3Pose
+from EgoHMR import EgoHMR
 import pickle
 from geometry import *
 from smpl_wrapper import *
@@ -408,7 +408,7 @@ def main(argv):
     device = "cuda" if args.cuda and torch.cuda.is_available() else "cpu"
 
     # dist.init_process_group(backend='nccl', init_method='env://')  #
-    net = D3Pose()
+    net = EgoHMR()
     # net = DDP(
     #     net,
     #     device_ids=[0],

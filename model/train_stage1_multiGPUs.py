@@ -18,7 +18,7 @@ import skimage.io
 import skimage.transform
 import skimage.color
 import skimage
-from D3Pose import D3Pose
+from EgoHMR import EgoHMR
 import pickle
 from geometry import *
 from smpl_wrapper import *
@@ -482,7 +482,7 @@ def main(rank, argv, world_size):
     #                             world_size=world_size,
     #                             rank=rank)
 
-    net = D3Pose()
+    net = EgoHMR()
     net = net.to(rank)
     net = DDP(
         net,

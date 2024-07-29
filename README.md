@@ -15,3 +15,5 @@ conda install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvi
 pip install opencv-python
 pip install matplotlib
 ```
+
+

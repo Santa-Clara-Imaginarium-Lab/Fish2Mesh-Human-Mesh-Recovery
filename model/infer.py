@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 import time
 import sys
-from model.D3Pose import *
+from model.EgoHMR import *
 from PIL import Image
 # import pandas as pd
 from torchvision import transforms
@@ -301,7 +301,7 @@ def main(argv):
         # pin_memory=(device == "cuda"),
     )
 
-    net = D3Pose()
+    net = EgoHMR()
     net = net.to(device)
 
     last_epoch = 0

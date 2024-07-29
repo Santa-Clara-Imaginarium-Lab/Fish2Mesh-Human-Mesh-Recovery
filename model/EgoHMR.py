@@ -5,7 +5,7 @@ from util import PatchEmbed, PatchMerging
 from regressor_head import *
 
 
-class D3Pose(nn.Module):
+class EgoHMR(nn.Module):
     def __init__(self,
                  pretrain_img_size=256,
                  patch_size=2,
