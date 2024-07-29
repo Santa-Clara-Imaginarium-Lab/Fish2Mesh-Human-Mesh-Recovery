@@ -7,7 +7,7 @@
 - Oct 2023: MoEmo was accepted by IROS 2023 (IEEE/RSJ International Conference on Intelligent Robots and Systems).
 
 # Install
-
+My torch version is 2.0.1. I am not sure whether I missing some package which we need to intall. If I miss something, please let me know.
 ```
 conda create -n pose python=3.8
 conda activate pose
@@ -15,5 +15,7 @@ conda install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvi
 pip install opencv-python
 pip install matplotlib
 ```
+
+
 
 

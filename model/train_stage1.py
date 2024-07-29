@@ -172,20 +172,23 @@ class myDataset(Dataset):
 
     def __getitem__(self, index):
         spatial_feature_map_path = self.clipTensor[index]
+        labels_folder = '/media/imaginarium/12T/Dataset/headset_frames_all/'
 
         split_string = spatial_feature_map_path.split('/')
         pt_name = split_string[len(split_string) - 1]
-        gt_name = pt_name.replace('.pt','.pkl')
+        gt_name = pt_name.replace('.png','.pkl')
 
-        folder_path = '/'.join(split_string[:-2])
-
-        gt_folder_path = os.path.join(folder_path, 'gt')
-        gt_path = os.path.join(gt_folder_path, gt_name)
+        # folder_path = '/'.join(split_string[:-2])
+        #
+        # gt_folder_path = os.path.join(folder_path, 'gt')
+        gt_path = os.path.join(labels_folder, gt_name)
 
         with torch.no_grad():
-            spatial_feature_map = torch.load(spatial_feature_map_path, map_location=lambda storage, loc: storage)
+            # spatial_feature_map = torch.load(spatial_feature_map_path, map_location=lambda storage, loc: storage)
             # spatial_feature_map = spatial_feature_map.view(243, 200, 192)
-            spatial_feature_map.requires_grad = False
+            # spatial_feature_map.requires_grad = False
+
+
 
             with open(gt_path, 'rb') as file:
                 GT_file = pickle.load(file)
@@ -397,7 +400,11 @@ def main(argv):
         torch.manual_seed(args.seed)
         random.seed(args.seed)
 
-    train_transforms = transforms.Compose([])
+    train_transforms = transforms.Compose([
+    transforms.Resize((224, 224)),  # Example: resize to 224x224
+    transforms.ToTensor(),          # Convert to a tensor
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalize
+])
 
 
     # test_transforms = transforms.Compose([Resizer()])
