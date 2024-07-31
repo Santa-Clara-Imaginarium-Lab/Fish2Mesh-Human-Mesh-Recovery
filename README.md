@@ -15,6 +15,9 @@ conda install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvi
 pip install opencv-python
 pip install matplotlib
 ```
+Download SMPL model, which is essential for regression a Human Mesh to 3D joints.
+https://drive.google.com/file/d/1cYFB2-5fuEmbECJIAb-hDB3O0lw4rk70/view?usp=drive_link
+
 
 
 

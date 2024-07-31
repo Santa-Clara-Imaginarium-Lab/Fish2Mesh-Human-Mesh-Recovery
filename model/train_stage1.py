@@ -23,9 +23,7 @@ import pickle
 from geometry import *
 from smpl_wrapper import *
 
-# import torch.distributed as dist
-# from torch.nn.parallel import DistributedDataParallel as DDP
-# from torch.utils.data.distributed import DistributedSampler
+import torch.multiprocessing as mp
 
 class AverageMeter:
     """Compute running average."""
@@ -71,12 +69,6 @@ def configure_optimizers(net, args):
 def parse_args(argv):
     parser = argparse.ArgumentParser(description="Example training script.")
 
-    # parser.add_argument(
-    #     "-cd", "--contextDataset", type=str,
-    #     default='D:/Tianma/dataset/Pre_process/train_tensor/',
-    #     help="Training dataset"
-    # )
-
     parser.add_argument(
         "-td", "--testing_Data", type=str, default='/media/imaginarium/12T/Dataset/V1/valid/',
         help="testing dataset"
@@ -87,23 +79,21 @@ def parse_args(argv):
         help="Training dataset"
     )
     parser.add_argument("-e", "--epochs", default=1000000, type=int, help="Number of epochs (default: %(default)s)", )
-    # you need this argument in your scripts for DDP to work
-    # parser.add_argument('--local_rank', type=int, default=-1, metavar='N', help='Local process rank.')
     parser.add_argument(
         "-lr", "--learning-rate", default=1e-4, type=float, help="Learning rate (default: %(default)s)",
     )
     parser.add_argument(
-        "-n", "--num-workers", type=int, default=8, help="Dataloaders threads (default: %(default)s)",
+        "-n", "--num-workers", type=int, default=0, help="Dataloaders threads (default: %(default)s)",
     )
     parser.add_argument(
         "--patch-size", type=int, nargs=2, default=(256, 256),
         help="Size of the patches to be cropped (default: %(default)s)",
     )
     parser.add_argument(
-        "--batch-size", type=int, default=1, help="Batch size (default: %(default)s)"
+        "--batch-size", type=int, default=2, help="Batch size (default: %(default)s)"
     )
     parser.add_argument(
-        "--test-batch-size", type=int, default=1, help="Test batch size (default: %(default)s)",
+        "--test-batch-size", type=int, default=6, help="Test batch size (default: %(default)s)",
     )
     parser.add_argument("--cuda", default=True, action="store_true", help="Use cuda")
     parser.add_argument(
@@ -158,6 +148,8 @@ class Resizer(object):
         return torch.from_numpy(new_image), scale
 
 
+
+
 class myDataset(Dataset):
 
     def __init__(self, root, transform):
@@ -172,7 +164,7 @@ class myDataset(Dataset):
 
     def __getitem__(self, index):
         spatial_feature_map_path = self.clipTensor[index]
-        labels_folder = '/media/imaginarium/12T/Dataset/headset_frames_all/'
+        labels_folder = '/media/imaginarium/12T/Dataset/main_camera_label/'
 
         split_string = spatial_feature_map_path.split('/')
         pt_name = split_string[len(split_string) - 1]
@@ -181,17 +173,23 @@ class myDataset(Dataset):
         # folder_path = '/'.join(split_string[:-2])
         #
         # gt_folder_path = os.path.join(folder_path, 'gt')
-        gt_path = os.path.join(labels_folder, gt_name)
+        gt_path = os.path.join(labels_folder, 'person_4_frame_17242.pkl')
 
         with torch.no_grad():
             # spatial_feature_map = torch.load(spatial_feature_map_path, map_location=lambda storage, loc: storage)
             # spatial_feature_map = spatial_feature_map.view(243, 200, 192)
             # spatial_feature_map.requires_grad = False
 
+            # Open the image
+            image = Image.open(spatial_feature_map_path).convert('RGB')
+            # Apply transformations
+            transformed_image = self.transform(image)
+            print(gt_path)
 
 
             with open(gt_path, 'rb') as file:
                 GT_file = pickle.load(file)
+            # GT_file = 0
             # GT_npy = torch.from_numpy(np.array(np.load(gt_path), dtype='f'))
             # GT_npy.requires_grad = False
             # print(GT_npy.dtype)
@@ -200,7 +198,7 @@ class myDataset(Dataset):
 
         # GT_npy = random_tensor
 
-        return spatial_feature_map, GT_file
+        return transformed_image, GT_file
 
     def __len__(self):
         return len(self.clipTensor)
@@ -236,20 +234,21 @@ def train_one_epoch(model, train_dataloader, optimizer, epoch, clip_max_norm):
         out_net = model(Images)
         out_global_orient = out_net[:,:, 0:3*3].view(-1,1,3,3)
         # includes out_global_orient
-        out_body_pose_global_orient = out_net[:,:, 0 : 3*3 + 23 * 3 * 3].view(-1, 24, 3, 3)
+        out_body_pose_global_orient = out_net[:,:, 3*3 : 3*3 + 23 * 3 * 3].view(-1, 23, 3, 3)
 
         out_body_pose = out_net[:, :, 3 * 3: 3 * 3 + 23 * 3 * 3].view(-1, 23, 3, 3)
         out_betas = out_net[:,:, 3*3 + 23 * 3 * 3: 10 + 3 * 3 + 23 * 3 * 3].view(-1, 10)
         out_pred_cam = out_net[:,:, 10 + 3 * 3 + 23 * 3 * 3: ].view(-1, 3)
 
-        GT_joints_3d = GT_npy['joints_3d'].float().view(-1, 44, 3) / 1
-        GT_joints_2d = GT_npy['joints_2d'].float().view(-1, 44, 2) / 1
-        GT_pose = GT_npy['pose'].float().view(-1, 3)
-        GT_betas = GT_npy['shape'].float().view(-1, 10)
-        GT_cam = GT_npy['trans'].float().view(-1, 3)
+        GT_joints_3d = GT_npy['pred_keypoints_3d'].float().view(-1, 44, 3) / 1
+        GT_joints_2d = GT_npy['pred_keypoints_2d'].float().view(-1, 44, 2) / 1
+        GT_pose = GT_npy['pred_smpl_params']['global_orient'].float().view(-1, 1, 3, 3)
+        GT_global_orient = GT_npy['pred_smpl_params']['body_pose'].float().view(-1, 23, 3, 3)
+        GT_betas = GT_npy['pred_smpl_params']['betas'].float().view(-1, 10)
+        GT_cam = GT_npy['pred_cam'].float().view(-1, 3)
 
         # convert (-1,3) -> (-1, 24, 3, 3)
-        GT_pose = aa_to_rotmat(GT_pose).view(-1, 24, 3, 3)
+        # GT_pose = aa_to_rotmat(GT_pose).view(-1, 24, 3, 3)
 
         # regression SMPL->joints
         smpl_output = smpl_model(**{'global_orient':out_global_orient,'body_pose':out_body_pose,'betas':out_betas}, pose2rot=False)
@@ -263,7 +262,7 @@ def train_one_epoch(model, train_dataloader, optimizer, epoch, clip_max_norm):
 
         loss_beta = torch.nn.MSELoss(reduction='mean')
         loss_pose = torch.nn.MSELoss(reduction='mean')
-        # loss_3d_joints = torch.nn.MSELoss(reduction='mean')
+        loss_global_orient = torch.nn.L1Loss(reduction='mean')
         loss_3d_joints = torch.nn.L1Loss(reduction='mean')
         # loss_2d_joints = torch.nn.MSELoss(reduction='mean')
         # loss_2d_joints = torch.nn.L1Loss(reduction='mean')
@@ -271,10 +270,11 @@ def train_one_epoch(model, train_dataloader, optimizer, epoch, clip_max_norm):
         out_criterion_beta = loss_beta(out_betas.to(device), GT_betas.to(device))
         out_criterion_pose = loss_pose(out_body_pose_global_orient.to(device), GT_pose.to(device))
         out_criterion_3d_joints = loss_3d_joints(pred_keypoints_3d.to(device), GT_joints_3d.to(device))
+        out_criterion_global_orient = loss_global_orient(out_global_orient.to(device), GT_global_orient.to(device))
         # out_criterion_2d_joints = loss_2d_joints(pred_keypoints_2d.to(device),GT_joints_2d.to(device))
 
 
-        combined_loss = (0.03 * out_criterion_pose + 0.01 * out_criterion_beta + 0.2 * out_criterion_3d_joints
+        combined_loss = (0.03 * out_criterion_pose + 0.01 * out_criterion_beta + 0.2 * (out_criterion_3d_joints + out_criterion_global_orient)
                           + 0.1 * loss_pose(out_pred_cam.to(device),GT_cam.to(device)))
         # combined_loss = combined_loss.float()
 
@@ -286,7 +286,7 @@ def train_one_epoch(model, train_dataloader, optimizer, epoch, clip_max_norm):
             torch.nn.utils.clip_grad_norm_(model.parameters(), clip_max_norm)
         optimizer.step()
 
-        if i % 2000 == 0:
+        if i % 1 == 0:
             enc_time = time.time() - start
             start = time.time()
             print(
@@ -330,23 +330,23 @@ def validate_epoch(epoch, test_dataloader, model):
 
             out_global_orient = out_net[:, :, 0:3 * 3].view(-1, 1, 3, 3)
             # includes out_global_orient
-            out_body_pose_global_orient = out_net[:, :, 0: 3 * 3 + 23 * 3 * 3].view(-1, 24, 3, 3)
+            out_body_pose_global_orient = out_net[:, :, 3 * 3: 3 * 3 + 23 * 3 * 3].view(-1, 23, 3, 3)
 
             out_body_pose = out_net[:, :, 3 * 3: 3 * 3 + 23 * 3 * 3].view(-1, 23, 3, 3)
             out_betas = out_net[:, :, 3 * 3 + 23 * 3 * 3: 10 + 3 * 3 + 23 * 3 * 3].view(-1, 10)
             out_pred_cam = out_net[:, :, 10 + 3 * 3 + 23 * 3 * 3:].view(-1, 3)
 
-            GT_joints_3d = GT_npy['joints_3d'].float().view(-1, 44, 3) / 1
-            GT_joints_2d = GT_npy['joints_2d'].float().view(-1, 44, 2) / 1
-            GT_pose = GT_npy['pose'].float().view(-1, 3)
-            GT_betas = GT_npy['shape'].float().view(-1, 10)
-            GT_cam = GT_npy['trans'].float().view(-1, 3)
+            GT_joints_3d = GT_npy['pred_keypoints_3d'].float().view(-1, 44, 3) / 1
+            GT_joints_2d = GT_npy['pred_keypoints_2d'].float().view(-1, 44, 2) / 1
+            GT_pose = GT_npy['pred_smpl_params']['global_orient'].float().view(-1, 1, 3, 3)
+            GT_global_orient = GT_npy['pred_smpl_params']['body_pose'].float().view(-1, 23, 3, 3)
+            GT_betas = GT_npy['pred_smpl_params']['betas'].float().view(-1, 10)
+            GT_cam = GT_npy['pred_cam'].float().view(-1, 3)
 
             # convert (-1,3) -> (-1, 24, 3, 3)
-            GT_pose = aa_to_rotmat(GT_pose).view(-1, 24, 3, 3)
+            # GT_pose = aa_to_rotmat(GT_pose).view(-1, 24, 3, 3)
 
             # regression SMPL->joints
-            # smpl_model = SMPL(**SMPL_CONFIG).to(device)
             smpl_output = smpl_model(
                 **{'global_orient': out_global_orient, 'body_pose': out_body_pose, 'betas': out_betas}, pose2rot=False)
             pred_keypoints_3d = smpl_output.joints
@@ -354,12 +354,11 @@ def validate_epoch(epoch, test_dataloader, model):
 
             # focal_length = 5000 * torch.ones(Images.shape[0], 2, device=device, dtype=torch.float32)
             # focal_length = focal_length.reshape(-1, 2)
-            # pred_keypoints_2d = perspective_projection(pred_keypoints_3d, translation=out_pred_cam,
-            #                                            focal_length=focal_length / 256)
+            # pred_keypoints_2d = perspective_projection(pred_keypoints_3d, translation=out_pred_cam, focal_length=focal_length / 256)
 
             loss_beta = torch.nn.MSELoss(reduction='mean')
             loss_pose = torch.nn.MSELoss(reduction='mean')
-            # loss_3d_joints = torch.nn.MSELoss(reduction='mean')
+            loss_global_orient = torch.nn.L1Loss(reduction='mean')
             loss_3d_joints = torch.nn.L1Loss(reduction='mean')
             # loss_2d_joints = torch.nn.MSELoss(reduction='mean')
             # loss_2d_joints = torch.nn.L1Loss(reduction='mean')
@@ -367,10 +366,12 @@ def validate_epoch(epoch, test_dataloader, model):
             out_criterion_beta = loss_beta(out_betas.to(device), GT_betas.to(device))
             out_criterion_pose = loss_pose(out_body_pose_global_orient.to(device), GT_pose.to(device))
             out_criterion_3d_joints = loss_3d_joints(pred_keypoints_3d.to(device), GT_joints_3d.to(device))
-            # out_criterion_2d_joints = loss_2d_joints(pred_keypoints_2d.to(device), GT_joints_2d.to(device))
+            out_criterion_global_orient = loss_global_orient(out_global_orient.to(device), GT_global_orient.to(device))
+            # out_criterion_2d_joints = loss_2d_joints(pred_keypoints_2d.to(device),GT_joints_2d.to(device))
 
-            combined_loss = (0.03 * out_criterion_pose + 0.01 * out_criterion_beta + 0.2 * out_criterion_3d_joints
-                              + 0.1 * loss_pose(out_pred_cam.to(device), GT_cam.to(device)))
+            combined_loss = (0.03 * out_criterion_pose + 0.01 * out_criterion_beta + 0.2 * (
+                        out_criterion_3d_joints + out_criterion_global_orient)
+                             + 0.1 * loss_pose(out_pred_cam.to(device), GT_cam.to(device)))
 
             loss.update(combined_loss)
             loss_sumbeta.update(out_criterion_beta)
@@ -401,10 +402,10 @@ def main(argv):
         random.seed(args.seed)
 
     train_transforms = transforms.Compose([
-    transforms.Resize((224, 224)),  # Example: resize to 224x224
-    transforms.ToTensor(),          # Convert to a tensor
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalize
-])
+                        transforms.Resize((224, 224)),  # Example: resize to 224x224
+                        transforms.ToTensor(),          # Convert to a tensor
+                        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalize
+                        ])
 
 
     # test_transforms = transforms.Compose([Resizer()])
@@ -414,25 +415,15 @@ def main(argv):
     print('finish loading datasets')
     device = "cuda" if args.cuda and torch.cuda.is_available() else "cpu"
 
-    # dist.init_process_group(backend='nccl', init_method='env://')  #
     net = EgoHMR()
-    # net = DDP(
-    #     net,
-    #     device_ids=[0],
-    #     output_device=0
-    # )
     net = net.to(device)
-    # initialize the DistributedSampler
-    # train_sampler = DistributedSampler(train_dataset)
-    # test_sampler = DistributedSampler(test_dataset)
-
 
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         shuffle=True,
-        pin_memory=(device == "cuda"),
+        pin_memory=True,
         # sampler=train_sampler
     )
 
@@ -495,4 +486,5 @@ def main(argv):
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
+    # mp.set_start_method('spawn')
     main(sys.argv[1:])

@@ -26,8 +26,9 @@ def copy_and_rename_frames(input_folder, output_folder):
                     frame_path = os.path.join(subfolder_path, frame_file)
                     new_frame_name = f"person_{last_number}_frame_{idx + 1}.png"
                     new_frame_path = os.path.join(output_folder, new_frame_name)
-                    shutil.copy(frame_path, new_frame_path)
-                    print(f"Copied {frame_file} to {new_frame_name}")
+                    if not os.path.exists(new_frame_path):
+                        shutil.copy(frame_path, new_frame_path)
+                        print(f"Copied {frame_file} to {new_frame_name}")
 
 
 # Example usage

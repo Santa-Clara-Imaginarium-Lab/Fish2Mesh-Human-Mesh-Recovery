@@ -26,11 +26,22 @@ def clean_frames_with_labels(frames_folder, labels_folder):
             os.remove(frame_path)
             print(f"Deleted {frame_file}")
 
+    for frame_file in label_files:
+        # Get the name of the frame file without extension
+        frame_name = os.path.splitext(frame_file)[0]
+
+        # Check if the corresponding label exists
+        if frame_name +'.pkl' not in frame_files:
+            # If not, delete the frame
+            frame_path = os.path.join(labels_folder, frame_file)
+            os.remove(frame_path)
+            print(f"Deleted {frame_file}")
+
 
 # Example usage
 # frames_folder = '/media/imaginarium/12T/Dataset/headset_frames_all'  # Folder containing the frames
 # labels_folder = '/media/imaginarium/12T/Dataset/main_camera_label'  # Folder containing the labels
-frames_folder = '/media/imaginarium/12T/Dataset/main_camera_label'  # Folder containing the frames
+frames_folder = '/media/imaginarium/12T/Dataset/new_name_label'  # Folder containing the frames
 labels_folder = '/media/imaginarium/12T/Dataset/headset_frames_all'
 
 clean_frames_with_labels(frames_folder, labels_folder)
