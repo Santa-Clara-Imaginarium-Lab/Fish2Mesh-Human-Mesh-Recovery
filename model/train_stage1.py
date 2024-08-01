@@ -46,7 +46,7 @@ SMPL_CONFIG = {'data_dir': '/home/imaginarium/.cache/4DHumans/data/',
                    'num_body_joints': 23,
                    'joint_regressor_extra': '/home/imaginarium/.cache/4DHumans/data//SMPL_to_J19.pkl',
                    'mean_params': '/home/imaginarium/.cache/4DHumans/data//smpl_mean_params.npz'}
-smpl_model = SMPL(**SMPL_CONFIG).to('cuda')
+smpl_model = SMPL(**SMPL_CONFIG).to('cuda:1')
 
 def configure_optimizers(net, args):
     parameters = {
@@ -90,7 +90,7 @@ def parse_args(argv):
         help="Size of the patches to be cropped (default: %(default)s)",
     )
     parser.add_argument(
-        "--batch-size", type=int, default=75, help="Batch size (default: %(default)s)"
+        "--batch-size", type=int, default=70, help="Batch size (default: %(default)s)"
     )
     parser.add_argument(
         "--test-batch-size", type=int, default=70, help="Test batch size (default: %(default)s)",
@@ -106,7 +106,7 @@ def parse_args(argv):
                         help="gradient clipping max norm (default: %(default)s")
 
     parser.add_argument("--checkpoint",
-                        default="",  # ./train0008/10.ckpt
+                        default="./save/68.ckpt",  # ./train0008/10.ckpt
                         type=str, help="Path to a checkpoint")
 
     args = parser.parse_args(argv)
@@ -254,7 +254,7 @@ def train_one_epoch(model, train_dataloader, optimizer, epoch, clip_max_norm):
             torch.nn.utils.clip_grad_norm_(model.parameters(), clip_max_norm)
         optimizer.step()
 
-        if i % 100 == 0:
+        if i % 200 == 0:
             enc_time = time.time() - start
             start = time.time()
             print(
@@ -380,7 +380,7 @@ def main(argv):
     train_dataset = myDataset(args.Training_Data, train_transforms)
     test_dataset = myDataset(args.testing_Data, train_transforms)
     print('finish loading datasets')
-    device = "cuda" if args.cuda and torch.cuda.is_available() else "cpu"
+    device = "cuda:1" if args.cuda and torch.cuda.is_available() else "cpu"
 
     net = EgoHMR()
     net = net.to(device)

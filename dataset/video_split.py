@@ -40,7 +40,7 @@ def process_videos(input_folder, output_folder):
 
 
 # Example usage
-input_folder = '/media/imaginarium/12T/Dataset/headset_videos/'
-output_folder = '/media/imaginarium/12T/Dataset/headset_frames/'
+input_folder = '/media/imaginarium/12T/Dataset/temp_main_viedos/'
+output_folder = '/media/imaginarium/12T/Dataset/temp_main_frames/'
 
 process_videos(input_folder, output_folder)
