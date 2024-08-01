@@ -190,24 +190,13 @@ def train_one_epoch(model, train_dataloader, optimizer, epoch, clip_max_norm):
     model.train()
     device = next(model.parameters()).device
     start = time.time()
-    # accu_num = torch.zeros(1).to(device)
     sample_num = 0
 
     for i, d in enumerate(train_dataloader):
 
         Images, GT_npy = d
-
-        # random_tensor = GT_npy + 0 * torch.randn_like(GT_npy) * optimizer.param_groups[0]['lr']
-
-        # Set the first row to zero
-        # random_tensor[:, 0] = 0
-        # random_tensor[:, 0, :] = 0
-
-        # srcGT = random_tensor
-
         Images = Images.to(device)
-        # srcGT = srcGT.to(device)
-        # GT_npy = GT_npy.to(device)
+
         optimizer.zero_grad()
         sample_num += Images.shape[0]
 
@@ -258,9 +247,6 @@ def train_one_epoch(model, train_dataloader, optimizer, epoch, clip_max_norm):
 
         combined_loss = (0.03 * out_criterion_pose + 0.01 * out_criterion_beta + 0.2 * (out_criterion_3d_joints + out_criterion_global_orient)
                           + 0.1 * loss_pose(out_pred_cam.to(device),GT_cam.to(device)))
-        # combined_loss = combined_loss.float()
-
-        # combined_loss = the * out_criterion_pose_first
 
         combined_loss.backward()
 
@@ -297,8 +283,7 @@ def validate_epoch(epoch, test_dataloader, model):
     loss_3d = AverageMeter()
     loss_2d = AverageMeter()
     loss_cam = AverageMeter()
-    # loss_function = torch.nn.MSELoss(reduction='mean')
-    # accu_num = torch.zeros(1).to(device)  # 累计预测正确的样本数
+
     sample_num = 0
 
     with torch.no_grad():
@@ -444,9 +429,6 @@ def main(argv):
                         epoch,
                         args.clip_max_norm,
                         )
-
-        # let all processes sync up before starting with a new epoch of training
-        # dist.barrier()
 
         loss = validate_epoch(epoch, test_dataloader, net)
         lr_scheduler.step(loss)

@@ -41,8 +41,7 @@ class EgoHMR(nn.Module):
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
 
         # build layers
-        self.patch_embed = PatchEmbed(
-            patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim,
+        self.patch_embed = PatchEmbed(patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim,
             norm_layer=norm_layer if self.patch_norm else None)
 
         # initialize encoder layers
@@ -65,50 +64,17 @@ class EgoHMR(nn.Module):
                 inverse=False)
             self.encoder_layers.append(layer)
 
-        # dpr2 = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
-
-        # initialize decoder layers
-        # self.decoder_layers = nn.ModuleList()
-        # for i_layer in range(self.num_layers):
-        #     layer = DecoderBlock(
-        #         dim=82,
-        #         mlp_ratio=mlp_ratio,
-        #         num_heads=num_heads[i_layer],
-        #         qkv_bias=qkv_bias,
-        #         qk_scale=qk_scale,
-        #         drop=drop_rate+offset,
-        #         attn_drop=attn_drop_rate+offset,
-        #         drop_path=drop_path_rate+offset,
-        #         norm_layer=norm_layer,
-        #         downsample=PatchMerging if (i_layer < self.num_layers - 1) else None,
-        #         use_checkpoint=use_checkpoint,
-        #         inverse=False)
-        #     self.decoder_layers.append(layer)
-
-        # initialize regression head
-        # self.regressor_heads = nn.ModuleList()
-        # for i_layer in range(self.num_layers):
-        #     layer = regressor_head(
-        #         i=i_layer,
-        #         embed_dim=embed_dim,
-        #         in_chans=31,
-        #         out_features=82,
-        #     )
-        #     self.regressor_heads.append(layer)
 
         self.outputHead = nn.Sequential(
             conv3x3(embed_dim * 8, embed_dim * 2),
             nn.GELU(),
             conv3x3(embed_dim * 2, embed_dim // 2),
             nn.GELU(),
-            # conv3x3(embed_dim // 2, embed_dim // 8),
-            # nn.GELU(),
             conv3x3(embed_dim // 2 , 2),
         )
         # global_orient (b x 1 x 3 x 3), body_pose (b x 23 x 3 x 3), betas (b x 10), pred_cam (b x 3)
         # 9 + 207 + 10 + 3 = 229
         self.regressHead = nn.Linear(2 * 14 * 14, 229)
-        # self.sigmoid = nn.Sigmoid()
 
     def init_weights(self):
         for m in self.modules():
@@ -139,10 +105,6 @@ class EgoHMR(nn.Module):
         encoder_input = encoder_input.flatten(2).transpose(1, 2)
         encoder_input = self.pos_drop(encoder_input)
 
-        # decoder_out = gt
-
-        # encoder_head = encoder_input
-
         for i in range(self.num_layers):
             encoder_block = self.encoder_layers[i]
 
@@ -154,23 +116,11 @@ class EgoHMR(nn.Module):
                 WH, WW = (WH + 1) // 2, (WW + 1) // 2
                 C = self.embed_dim * 2 ** (i + 1)
 
-            # C = self.embed_dim * 2 ** (i + 1)
-            # encoder_out = encoder_out.view(-1, int(WH), int(WW), C).permute(0, 3, 1, 2).contiguous()
-
-            # regressor_head = self.regressor_heads[i]
-            # encoder_head = regressor_head(encoder_out, WH, WW)
-
-            # encoder_out as part of decoder's input
-            # decoder_block = self.decoder_layers[i]
-            # decoder_out = decoder_block(encoder_head, decoder_out)
-
         encoder_out = encoder_out.view(-1, int(WH), int(WW), C).permute(0, 3, 1, 2).contiguous()
         encoder_head = self.outputHead(encoder_out)
         encoder_head = encoder_head.view(-1, 1, 2*14*14)
         encoder_head = self.regressHead(encoder_head)
         # global_orient (b x 1 x 3 x 3), body_pose (b x 23 x 3 x 3), betas (b x 10), pred_cam (b x 3)
         # 9 + 207 + 10 + 3 = 229
-
-        # encoder_head = self.sigmoid(encoder_head)
 
         return encoder_head #.view(-1, 243, 200, 192)
