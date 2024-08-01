@@ -70,12 +70,12 @@ def parse_args(argv):
     parser = argparse.ArgumentParser(description="Example training script.")
 
     parser.add_argument(
-        "-td", "--testing_Data", type=str, default='/media/imaginarium/12T/Dataset/V1/valid/',
+        "-td", "--testing_Data", type=str, default='/media/imaginarium/2T/V1/valid/',
         help="testing dataset"
     )
 
     parser.add_argument(
-        "-d", "--Training_Data", type=str, default='/media/imaginarium/12T/Dataset/V1/train/',
+        "-d", "--Training_Data", type=str, default='/media/imaginarium/2T/V1/train/',
         help="Training dataset"
     )
     parser.add_argument("-e", "--epochs", default=1000000, type=int, help="Number of epochs (default: %(default)s)", )
@@ -83,17 +83,17 @@ def parse_args(argv):
         "-lr", "--learning-rate", default=1e-4, type=float, help="Learning rate (default: %(default)s)",
     )
     parser.add_argument(
-        "-n", "--num-workers", type=int, default=0, help="Dataloaders threads (default: %(default)s)",
+        "-n", "--num-workers", type=int, default=32, help="Dataloaders threads (default: %(default)s)",
     )
     parser.add_argument(
         "--patch-size", type=int, nargs=2, default=(256, 256),
         help="Size of the patches to be cropped (default: %(default)s)",
     )
     parser.add_argument(
-        "--batch-size", type=int, default=2, help="Batch size (default: %(default)s)"
+        "--batch-size", type=int, default=75, help="Batch size (default: %(default)s)"
     )
     parser.add_argument(
-        "--test-batch-size", type=int, default=6, help="Test batch size (default: %(default)s)",
+        "--test-batch-size", type=int, default=70, help="Test batch size (default: %(default)s)",
     )
     parser.add_argument("--cuda", default=True, action="store_true", help="Use cuda")
     parser.add_argument(
@@ -113,41 +113,22 @@ def parse_args(argv):
     return args
 
 
-class Resizer(object):
-    """Convert ndarrays in sample to Tensors."""
 
-    def __call__(self, image, min_side=256, max_side=256):
-        # image, annots = sample['img'], sample['annot']
+def ensure_single_dimension(gt_files):
+    def process_tensor(tensor):
+        if tensor.ndim > 1 and tensor.shape[0] > 1:
+            return tensor[0:1]
+        return tensor
 
-        rows, cols, cns = image.shape
+    def process_dict(d):
+        for key, value in d.items():
+            if isinstance(value, dict):
+                process_dict(value)
+            elif isinstance(value, torch.Tensor):
+                d[key] = process_tensor(value)
 
-        smallest_side = min(rows, cols)
-
-        # rescale the image so the smallest side is min_side
-        scale = min_side / smallest_side
-
-        # check if the largest side is now greater than max_side, which can happen
-        # when images have a large aspect ratio
-        largest_side = max(rows, cols)
-
-        if largest_side * scale > max_side:
-            scale = max_side / largest_side
-
-        # resize the image with the computed scale
-        image = skimage.transform.resize(image, (int(round(rows * scale)), int(round((cols * scale)))))
-        rows, cols, cns = image.shape
-
-        pad_w = 256 - rows
-        pad_h = 256 - cols
-
-        new_image = np.zeros((rows + pad_w, cols + pad_h, cns)).astype(np.float32)
-        new_image[:rows, :cols, :] = image.astype(np.float32)
-
-        # annots *= scale
-
-        return torch.from_numpy(new_image), scale
-
-
+    process_dict(gt_files)
+    return gt_files
 
 
 class myDataset(Dataset):
@@ -164,7 +145,7 @@ class myDataset(Dataset):
 
     def __getitem__(self, index):
         spatial_feature_map_path = self.clipTensor[index]
-        labels_folder = '/media/imaginarium/12T/Dataset/main_camera_label/'
+        labels_folder = '/media/imaginarium/2T/new_name_label/'
 
         split_string = spatial_feature_map_path.split('/')
         pt_name = split_string[len(split_string) - 1]
@@ -173,7 +154,7 @@ class myDataset(Dataset):
         # folder_path = '/'.join(split_string[:-2])
         #
         # gt_folder_path = os.path.join(folder_path, 'gt')
-        gt_path = os.path.join(labels_folder, 'person_4_frame_17242.pkl')
+        gt_path = os.path.join(labels_folder, gt_name)
 
         with torch.no_grad():
             # spatial_feature_map = torch.load(spatial_feature_map_path, map_location=lambda storage, loc: storage)
@@ -184,11 +165,12 @@ class myDataset(Dataset):
             image = Image.open(spatial_feature_map_path).convert('RGB')
             # Apply transformations
             transformed_image = self.transform(image)
-            print(gt_path)
+            # print(gt_path)
 
 
             with open(gt_path, 'rb') as file:
                 GT_file = pickle.load(file)
+                GT_file = ensure_single_dimension(GT_file)
             # GT_file = 0
             # GT_npy = torch.from_numpy(np.array(np.load(gt_path), dtype='f'))
             # GT_npy.requires_grad = False
@@ -286,7 +268,7 @@ def train_one_epoch(model, train_dataloader, optimizer, epoch, clip_max_norm):
             torch.nn.utils.clip_grad_norm_(model.parameters(), clip_max_norm)
         optimizer.step()
 
-        if i % 1 == 0:
+        if i % 100 == 0:
             enc_time = time.time() - start
             start = time.time()
             print(
@@ -423,8 +405,9 @@ def main(argv):
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         shuffle=True,
-        pin_memory=True,
-        # sampler=train_sampler
+        pin_memory=(device == "cuda"),
+        persistent_workers=True,
+        # prefetch_factor=200
     )
 
     test_dataloader = DataLoader(
@@ -432,7 +415,6 @@ def main(argv):
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         shuffle=False,
-        # sampler=test_sampler
         # pin_memory=(device == "cuda"),
     )
 

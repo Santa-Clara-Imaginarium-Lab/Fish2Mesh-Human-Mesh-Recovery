@@ -128,6 +128,7 @@ class EgoHMR(nn.Module):
         """Forward function."""
         # images(feature) : batch x 243 x 200 x 192
         # images(frames)  : batch x 80 x 3 x 224 x 224
+        # b x 3 x 224 x 224
 
         # preprocess encoder input
         # images = images.view(-1, 1, 200, 192)
