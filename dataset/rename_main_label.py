@@ -3,7 +3,7 @@ import shutil
 import re
 
 # Define the source and destination directories
-src_dir = '/media/imaginarium/12T/Dataset/main_camera_label/'
+src_dir = '/media/imaginarium/12T/Dataset/temp_main_label/'
 dst_dir = '/media/imaginarium/12T/Dataset/new_name_label/'
 
 # Ensure the destination directory exists

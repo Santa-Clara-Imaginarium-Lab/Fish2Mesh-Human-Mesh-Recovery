@@ -20,8 +20,8 @@ import skimage.color
 import skimage
 from EgoHMR import EgoHMR
 import pickle
-from geometry import *
-from smpl_wrapper import *
+from util.geometry import *
+from util.smpl_wrapper import *
 
 import torch.multiprocessing as mp
 
@@ -106,7 +106,7 @@ def parse_args(argv):
                         help="gradient clipping max norm (default: %(default)s")
 
     parser.add_argument("--checkpoint",
-                        default="./save/68.ckpt",  # ./train0008/10.ckpt
+                        default="./save/189.ckpt",  # ./train0008/10.ckpt
                         type=str, help="Path to a checkpoint")
 
     args = parser.parse_args(argv)
@@ -254,7 +254,7 @@ def train_one_epoch(model, train_dataloader, optimizer, epoch, clip_max_norm):
             torch.nn.utils.clip_grad_norm_(model.parameters(), clip_max_norm)
         optimizer.step()
 
-        if i % 200 == 0:
+        if i % 400 == 0:
             enc_time = time.time() - start
             start = time.time()
             print(
