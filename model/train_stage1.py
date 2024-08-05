@@ -1,24 +1,20 @@
 import os
-import numpy as np
-import torch
 import argparse
 import random
 from torch.utils.data import Dataset
-# from pathlib import Path
 from torch.utils.data import DataLoader
 import torch.optim as optim
 import time
 import sys
 
 from PIL import Image
-# import pandas as pd
 from torchvision import transforms
 from scipy.stats import multivariate_normal
 import skimage.io
 import skimage.transform
 import skimage.color
 import skimage
-from EgoHMR import EgoHMR
+from HMR_Model.EgoHMR import EgoHMR
 import pickle
 from util.geometry import *
 from util.smpl_wrapper import *
