@@ -15,6 +15,7 @@ import skimage.transform
 import skimage.color
 import skimage
 from HMR_Model.EgoHMR import EgoHMR
+from HMR_Model.EgoHMR_EgoPositionEmbedding import EgoHMR_pos
 import pickle
 from util.geometry import *
 from util.smpl_wrapper import *
@@ -71,7 +72,7 @@ def parse_args(argv):
     )
 
     parser.add_argument(
-        "-d", "--Training_Data", type=str, default='/media/imaginarium/2T/V1/train/',
+        "-d", "--Training_Data", type=str, default='/media/imaginarium/2T/headset_frames_all/',
         help="Training dataset"
     )
     parser.add_argument("-e", "--epochs", default=1000000, type=int, help="Number of epochs (default: %(default)s)", )
@@ -102,7 +103,7 @@ def parse_args(argv):
                         help="gradient clipping max norm (default: %(default)s")
 
     parser.add_argument("--checkpoint",
-                        default="./save/189.ckpt",  # ./train0008/10.ckpt
+                        default="",  # ./train0008/10.ckpt
                         type=str, help="Path to a checkpoint")
 
     args = parser.parse_args(argv)
@@ -250,7 +251,7 @@ def train_one_epoch(model, train_dataloader, optimizer, epoch, clip_max_norm):
             torch.nn.utils.clip_grad_norm_(model.parameters(), clip_max_norm)
         optimizer.step()
 
-        if i % 400 == 0:
+        if i % 800 == 0:
             enc_time = time.time() - start
             start = time.time()
             print(
@@ -378,7 +379,7 @@ def main(argv):
     print('finish loading datasets')
     device = "cuda:1" if args.cuda and torch.cuda.is_available() else "cpu"
 
-    net = EgoHMR()
+    net = EgoHMR_pos()
     net = net.to(device)
 
     train_dataloader = DataLoader(
