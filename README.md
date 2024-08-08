@@ -1,7 +1,7 @@
-# VR-AR-Human-Mesh-Recovery
+# Fish2Mesh Transformer: 3D Human Mesh Reconstruction from Egocentric Vision
 
 # News!
-- Jun 2024: Our new work: 3D Egocentric Human Mesh Recovery: A Top-Down Camera Approach
+- Jun 2024: Our new work: Fish2Mesh Transformer: 3D Human Mesh Reconstruction from Egocentric Vision
 - Dec 2023: [SoloPose](https://github.com/Santa-Clara-Media-Lab/SoloPose) is released!
 - Nov 2023: [MoEmo](https://github.com/Santa-Clara-Media-Lab/MoEmo_Vision_Transformer) codes are released!
 - Oct 2023: MoEmo was accepted by IROS 2023 (IEEE/RSJ International Conference on Intelligent Robots and Systems).
