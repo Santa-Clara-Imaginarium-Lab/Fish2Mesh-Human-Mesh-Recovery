@@ -11,19 +11,6 @@ import pickle
 from model.HMR_Model.EgoHMR_EgoPositionEmbedding import EgoHMR_pos
 from model.util.smpl_wrapper import SMPL
 from model.util.geometry import *
-from model.util.renderer import Renderer
-import numpy as np
-import cv2
-
-LIGHT_BLUE=(0.65098039,  0.74117647,  0.85882353)
-
-def denormalize(tensor, mean, std):
-    """Denormalize a tensor image."""
-    mean = torch.tensor(mean).reshape(3, 1, 1)
-    std = torch.tensor(std).reshape(3, 1, 1)
-    tensor = tensor * std + mean
-    tensor = tensor.clamp(0, 1)  # Clip values to be in [0, 1]
-    return tensor
 
 def mpjpe_cal(predicted, target):
     assert predicted.shape == target.shape
@@ -67,14 +54,14 @@ def parse_args(argv):
         help="Path to the testing dataset."
     )
     parser.add_argument(
-        "--batch-size", type=int, default=1, help="Batch size for testing (default: %(default)s)"
+        "--batch-size", type=int, default=70, help="Batch size for testing (default: %(default)s)"
     )
     parser.add_argument(
-        "--num-workers", type=int, default=1, help="Number of workers for data loading (default: %(default)s)"
+        "--num-workers", type=int, default=8, help="Number of workers for data loading (default: %(default)s)"
     )
     parser.add_argument("--cuda", default=True, action="store_true", help="Use CUDA if available")
     parser.add_argument(
-        "--checkpoint", type=str, default="../save/54.ckpt",
+        "--checkpoint", type=str, default="../save/68.ckpt",
         help="Path to the saved checkpoint file."
     )
 
@@ -118,9 +105,6 @@ def test_epoch(test_dataloader, model, smpl_model, device):
     loss_cam = AverageMeter()
     loss_MPJPE = AverageMeter()
 
-    faceArray = np.load('./model_faces.npy')
-    renderer = Renderer(faces=faceArray)
-
     with torch.no_grad():
         for d in test_dataloader:
             Images, GT_npy = d
@@ -137,11 +121,10 @@ def test_epoch(test_dataloader, model, smpl_model, device):
             GT_pose = GT_npy['pred_smpl_params']['global_orient'].float().view(-1, 1, 3, 3)
             GT_global_orient = GT_npy['pred_smpl_params']['body_pose'].float().view(-1, 23, 3, 3)
             GT_betas = GT_npy['pred_smpl_params']['betas'].float().view(-1, 10)
-            GT_cam = GT_npy['pred_cam_t'].float().view(-1, 3)
+            GT_cam = GT_npy['pred_cam'].float().view(-1, 3)
 
             smpl_output = smpl_model(global_orient=out_global_orient, body_pose=out_body_pose_global_orient, betas=out_betas, pose2rot=False)
             pred_keypoints_3d = smpl_output.joints
-            pred_vertices = smpl_output.vertices
 
             loss_beta = torch.nn.MSELoss(reduction='mean')
             loss_pose = torch.nn.MSELoss(reduction='mean')
@@ -157,16 +140,6 @@ def test_epoch(test_dataloader, model, smpl_model, device):
                         out_criterion_3d_joints + out_criterion_global_orient) + 0.1 * loss_pose(out_pred_cam.to(device), GT_cam.to(device)))
 
             MPJPE_loss = mpjpe_cal(pred_keypoints_3d.to(device),GT_joints_3d.to(device))
-
-            regression_img = renderer(pred_vertices[0].detach().cpu().numpy(),
-                                      GT_cam[0].detach().cpu().numpy(), # GT_cam[0].detach().cpu().numpy()
-                                      torch.zeros((3, 224, 224), dtype=torch.float32), #Images[0].cpu(),
-                                      mesh_base_color=LIGHT_BLUE,
-                                      scene_bg_color=(1, 1, 1),
-                                      )
-            convertIMG = denormalize(Images[0].cpu(), [0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-            final_img = np.concatenate([convertIMG.permute(1, 2, 0), regression_img], axis=1)
-            cv2.imwrite('regression_img.png', 255 * final_img)
             loss_MPJPE.update(MPJPE_loss)
 
             loss.update(combined_loss)

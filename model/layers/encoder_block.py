@@ -1,4 +1,4 @@
-from layers.swin_blocks import *
+from .swin_blocks import *
 
 import torch
 import numpy as np

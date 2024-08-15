@@ -1,8 +1,8 @@
 from torch.nn.init import trunc_normal_
-from layers.encoder_block import *
-from layers.decoder_block import *
-from util.util import PatchEmbed, PatchMerging
-from layers.regressor_head import *
+from model.layers.encoder_block import *
+from model.layers.decoder_block import *
+from model.util.util import PatchEmbed, PatchMerging
+from model.layers.regressor_head import *
 
 
 class EgoHMR(nn.Module):

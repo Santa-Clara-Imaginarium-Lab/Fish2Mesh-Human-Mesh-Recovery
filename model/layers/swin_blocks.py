@@ -1,7 +1,7 @@
 from timm.layers import to_2tuple, DropPath
 
-from layers.att_module import *
-from util.util import Mlp, window_partition, window_reverse
+from .att_module import *
+from ..util.util import Mlp, window_partition, window_reverse
 import torch.nn.functional as F
 
 

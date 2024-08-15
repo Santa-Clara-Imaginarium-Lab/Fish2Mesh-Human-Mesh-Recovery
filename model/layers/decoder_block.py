@@ -1,4 +1,4 @@
-from layers.swin_blocks import *
+from .swin_blocks import *
 
 
 def calculate_temporal_mask(N, device='cuda'):

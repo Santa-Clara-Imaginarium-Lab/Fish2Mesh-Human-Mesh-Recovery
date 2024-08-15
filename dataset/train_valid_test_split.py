@@ -3,7 +3,7 @@ import random
 import shutil
 
 # Define the path to your folder
-img_folder = '/media/imaginarium/12T/Dataset/headset_frames_all'
+img_folder = '/media/imaginarium/2T/headset_frames_all'
 
 # Get a list of all image files in the folder
 image_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(img_folder) for f in filenames]
@@ -12,7 +12,7 @@ image_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(img_folder) 
 random.shuffle(image_files)
 
 # Define the split sizes
-train_size = 167562 - 5000 - 5000
+train_size = 259865 - 5000 - 5000
 valid_size = 5000
 test_size = 5000
 
@@ -22,7 +22,7 @@ valid_images = image_files[train_size:train_size + valid_size]
 test_images = image_files[train_size + valid_size:train_size + valid_size + test_size]
 
 # Create directories for train, valid, and test sets
-output = '/media/imaginarium/12T/Dataset/V1/'
+output = '/media/imaginarium/2T/V2/'
 train_dir = os.path.join(output, 'train')
 valid_dir = os.path.join(output, 'valid')
 test_dir = os.path.join(output, 'test')
