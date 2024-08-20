@@ -17,8 +17,8 @@ import skimage
 from HMR_Model.EgoHMR import EgoHMR
 from HMR_Model.EgoHMR_EgoPositionEmbedding import EgoHMR_pos
 import pickle
-from util.geometry import *
-from util.smpl_wrapper import *
+import torch
+
 
 import torch.multiprocessing as mp
 
@@ -37,13 +37,7 @@ class AverageMeter:
         self.count += n
         self.avg = self.sum / self.count
 
-SMPL_CONFIG = {'data_dir': '/home/imaginarium/.cache/4DHumans/data/',
-                   'model_path': '/home/imaginarium/.cache/4DHumans/data//smpl',
-                   'gender': 'neutral',
-                   'num_body_joints': 23,
-                   'joint_regressor_extra': '/home/imaginarium/.cache/4DHumans/data//SMPL_to_J19.pkl',
-                   'mean_params': '/home/imaginarium/.cache/4DHumans/data//smpl_mean_params.npz'}
-smpl_model = SMPL(**SMPL_CONFIG).to('cuda:1')
+
 
 def configure_optimizers(net, args):
     parameters = {
@@ -199,33 +193,25 @@ def train_one_epoch(model, train_dataloader, optimizer, epoch, clip_max_norm):
 
         # global_orient (b x 1 x 3 x 3), body_pose (b x 23 x 3 x 3), betas (b x 10), pred_cam (b x 3)
         # 9 + 207 + 10 + 3 = 229
-        out_net = model(Images)
-        out_global_orient = out_net[:,:, 0:3*3].view(-1,1,3,3)
-        # includes out_global_orient
-        out_body_pose_global_orient = out_net[:,:, 3*3 : 3*3 + 23 * 3 * 3].view(-1, 23, 3, 3)
+        out = model(Images)
+        out_global_orient = out['out_global_orient']
+        out_body_pose = out['out_body_pose']
+        out_betas = out['out_betas']
+        out_pred_cam = out['out_pred_cam']
+        pred_keypoints_3d = out['pred_keypoints_3d']
+        pred_keypoints_2d = out['pred_keypoints_2d']
+        pred_vertices = out['pred_vertices']
 
-        out_body_pose = out_net[:, :, 3 * 3: 3 * 3 + 23 * 3 * 3].view(-1, 23, 3, 3)
-        out_betas = out_net[:,:, 3*3 + 23 * 3 * 3: 10 + 3 * 3 + 23 * 3 * 3].view(-1, 10)
-        out_pred_cam = out_net[:,:, 10 + 3 * 3 + 23 * 3 * 3: ].view(-1, 3)
 
         GT_joints_3d = GT_npy['pred_keypoints_3d'].float().view(-1, 44, 3) / 1
         GT_joints_2d = GT_npy['pred_keypoints_2d'].float().view(-1, 44, 2) / 1
-        GT_pose = GT_npy['pred_smpl_params']['global_orient'].float().view(-1, 1, 3, 3)
-        GT_global_orient = GT_npy['pred_smpl_params']['body_pose'].float().view(-1, 23, 3, 3)
+        GT_global_orient = GT_npy['pred_smpl_params']['global_orient'].float().view(-1, 1, 3, 3)
+        GT_pose = GT_npy['pred_smpl_params']['body_pose'].float().view(-1, 23, 3, 3)
         GT_betas = GT_npy['pred_smpl_params']['betas'].float().view(-1, 10)
         GT_cam = GT_npy['pred_cam_t'].float().view(-1, 3)
         GT_vertices = GT_npy['pred_vertices'].float().view(-1,6890,3)
-        # convert (-1,3) -> (-1, 24, 3, 3)
-        # GT_pose = aa_to_rotmat(GT_pose).view(-1, 24, 3, 3)
 
-        # regression SMPL->joints
-        smpl_output = smpl_model(**{'global_orient':out_global_orient,'body_pose':out_body_pose,'betas':out_betas}, pose2rot=False)
-        pred_keypoints_3d = smpl_output.joints
-        pred_vertices = smpl_output.vertices
 
-        focal_length = 5000 * torch.ones(Images.shape[0], 2, device=device, dtype=torch.float32)
-        focal_length = focal_length.reshape(-1, 2)
-        pred_keypoints_2d = perspective_projection(pred_keypoints_3d, translation=out_pred_cam, focal_length=focal_length / 224)
 
 
         loss_beta = torch.nn.MSELoss(reduction='mean')
@@ -235,17 +221,19 @@ def train_one_epoch(model, train_dataloader, optimizer, epoch, clip_max_norm):
         # loss_2d_joints = torch.nn.MSELoss(reduction='mean')
         loss_2d_joints = torch.nn.L1Loss(reduction='mean')
         loss_vertices = torch.nn.L1Loss(reduction='mean')
+        loss_cam = torch.nn.MSELoss(reduction='mean')
 
-        out_criterion_beta = loss_beta(out_betas.to(device), GT_betas.to(device))
-        out_criterion_pose = loss_pose(out_body_pose_global_orient.to(device), GT_pose.to(device))
-        out_criterion_3d_joints = loss_3d_joints(pred_keypoints_3d.to(device), GT_joints_3d.to(device))
-        out_criterion_global_orient = loss_global_orient(out_global_orient.to(device), GT_global_orient.to(device))
-        out_criterion_2d_joints = loss_2d_joints(pred_keypoints_2d.to(device),GT_joints_2d.to(device))
-        out_criterion_vertices = loss_vertices(pred_vertices.to(device),GT_vertices.to(device))
+        criterion_beta = loss_beta(out_betas.to(device), GT_betas.to(device))
+        criterion_pose = loss_pose(out_body_pose.to(device), GT_pose.to(device))
+        criterion_3d = loss_3d_joints(pred_keypoints_3d.to(device), GT_joints_3d.to(device))
+        criterion_global_orient = loss_global_orient(out_global_orient.to(device), GT_global_orient.to(device))
+        criterion_2d = loss_2d_joints(pred_keypoints_2d.to(device),GT_joints_2d.to(device))
+        criterion_vertices = loss_vertices(pred_vertices.to(device),GT_vertices.to(device))
+        criterion_cam = loss_cam(out_pred_cam.to(device), GT_cam.to(device))
 
 
-        combined_loss = (0.3 * out_criterion_pose + 0.1 * out_criterion_beta + 0.2 * (out_criterion_3d_joints + out_criterion_global_orient + out_criterion_2d_joints)
-                          + 0.01 * loss_pose(out_pred_cam.to(device),GT_cam.to(device)) + out_criterion_vertices)
+        combined_loss = (3 * criterion_pose + 1 * criterion_beta + 2 * (2 * criterion_3d + criterion_global_orient + criterion_2d)
+                          + 0.001 * criterion_cam + criterion_vertices)
 
         combined_loss.backward()
 
@@ -253,7 +241,7 @@ def train_one_epoch(model, train_dataloader, optimizer, epoch, clip_max_norm):
             torch.nn.utils.clip_grad_norm_(model.parameters(), clip_max_norm)
         optimizer.step()
 
-        if i % 800 == 0:
+        if i % 1000 == 0:
             enc_time = time.time() - start
             start = time.time()
             print(
@@ -261,11 +249,11 @@ def train_one_epoch(model, train_dataloader, optimizer, epoch, clip_max_norm):
                 f"{i * len(Images)}/{len(train_dataloader.dataset)}"
                 f" ({100. * i / len(train_dataloader):.0f}%)]"
                 f'\tLoss: {combined_loss.item():.5f} |'
-                f'\tbeta_Loss: {out_criterion_beta.item():.5f} |'
-                f'\tpose_Loss: {out_criterion_pose.item():.5f} |'
-                f'\t3d_Loss: {out_criterion_3d_joints.item():.5f} |'
-                f'\t2d_Loss: {out_criterion_2d_joints.item():.5f} |'
-                f'\tv_Loss: {out_criterion_vertices.item():.5f} |'
+                f'\tbeta_Loss: {criterion_beta.item():.5f} |'
+                f'\tpose_Loss: {criterion_pose.item():.5f} |'
+                f'\t3d_Loss: {criterion_3d.item():.5f} |'
+                f'\t2d_Loss: {criterion_2d.item():.5f} |'
+                f'\tv_Loss: {criterion_vertices.item():.5f} |'
                 f'\tcamera_loss: {loss_pose(out_pred_cam.to(device),GT_cam.to(device)).item():.4f} |'
                 f"\ttime: {enc_time:.1f}"
             )
@@ -282,7 +270,7 @@ def validate_epoch(epoch, test_dataloader, model):
     loss_sumpose = AverageMeter()
     loss_3d = AverageMeter()
     loss_2d = AverageMeter()
-    loss_cam = AverageMeter()
+    loss_camera = AverageMeter()
     loss_v = AverageMeter()
 
     sample_num = 0
@@ -291,39 +279,27 @@ def validate_epoch(epoch, test_dataloader, model):
         for d in test_dataloader:
             Images, GT_npy = d
             sample_num += Images.shape[0]
-            out_net = model(Images.to(device))
+            # out_net = model(Images.to(device))
 
             # global_orient (b x 1 x 3 x 3), body_pose (b x 23 x 3 x 3), betas (b x 10), pred_cam (b x 3)
             # 9 + 207 + 10 + 3 = 229
 
-            out_global_orient = out_net[:, :, 0:3 * 3].view(-1, 1, 3, 3)
-            # includes out_global_orient
-            out_body_pose_global_orient = out_net[:, :, 3 * 3: 3 * 3 + 23 * 3 * 3].view(-1, 23, 3, 3)
-
-            out_body_pose = out_net[:, :, 3 * 3: 3 * 3 + 23 * 3 * 3].view(-1, 23, 3, 3)
-            out_betas = out_net[:, :, 3 * 3 + 23 * 3 * 3: 10 + 3 * 3 + 23 * 3 * 3].view(-1, 10)
-            out_pred_cam = out_net[:, :, 10 + 3 * 3 + 23 * 3 * 3:].view(-1, 3)
+            out = model(Images.to(device))
+            out_global_orient = out['out_global_orient']
+            out_body_pose = out['out_body_pose']
+            out_betas = out['out_betas']
+            out_pred_cam = out['out_pred_cam']
+            pred_keypoints_3d = out['pred_keypoints_3d']
+            pred_keypoints_2d = out['pred_keypoints_2d']
+            pred_vertices = out['pred_vertices']
 
             GT_joints_3d = GT_npy['pred_keypoints_3d'].float().view(-1, 44, 3) / 1
             GT_joints_2d = GT_npy['pred_keypoints_2d'].float().view(-1, 44, 2) / 1
-            GT_pose = GT_npy['pred_smpl_params']['global_orient'].float().view(-1, 1, 3, 3)
-            GT_global_orient = GT_npy['pred_smpl_params']['body_pose'].float().view(-1, 23, 3, 3)
+            GT_global_orient = GT_npy['pred_smpl_params']['global_orient'].float().view(-1, 1, 3, 3)
+            GT_pose = GT_npy['pred_smpl_params']['body_pose'].float().view(-1, 23, 3, 3)
             GT_betas = GT_npy['pred_smpl_params']['betas'].float().view(-1, 10)
             GT_cam = GT_npy['pred_cam_t'].float().view(-1, 3)
             GT_vertices = GT_npy['pred_vertices'].float().view(-1, 6890, 3)
-
-            # convert (-1,3) -> (-1, 24, 3, 3)
-            # GT_pose = aa_to_rotmat(GT_pose).view(-1, 24, 3, 3)
-
-            # regression SMPL->joints
-            smpl_output = smpl_model(
-                **{'global_orient': out_global_orient, 'body_pose': out_body_pose, 'betas': out_betas}, pose2rot=False)
-            pred_keypoints_3d = smpl_output.joints
-            pred_vertices = smpl_output.vertices
-
-            focal_length = 5000 * torch.ones(Images.shape[0], 2, device=device, dtype=torch.float32)
-            focal_length = focal_length.reshape(-1, 2)
-            pred_keypoints_2d = perspective_projection(pred_keypoints_3d, translation=out_pred_cam, focal_length=focal_length / 224)
 
             loss_beta = torch.nn.MSELoss(reduction='mean')
             loss_pose = torch.nn.MSELoss(reduction='mean')
@@ -332,26 +308,27 @@ def validate_epoch(epoch, test_dataloader, model):
             # loss_2d_joints = torch.nn.MSELoss(reduction='mean')
             loss_2d_joints = torch.nn.L1Loss(reduction='mean')
             loss_vertices = torch.nn.L1Loss(reduction='mean')
+            loss_cam = torch.nn.L1Loss(reduction='mean')
 
-            out_criterion_vertices = loss_vertices(pred_vertices.to(device), GT_vertices.to(device))
+            criterion_beta = loss_beta(out_betas.to(device), GT_betas.to(device))
+            criterion_pose = loss_pose(out_body_pose.to(device), GT_pose.to(device))
+            criterion_3d = loss_3d_joints(pred_keypoints_3d.to(device), GT_joints_3d.to(device))
+            criterion_global_orient = loss_global_orient(out_global_orient.to(device), GT_global_orient.to(device))
+            criterion_2d = loss_2d_joints(pred_keypoints_2d.to(device), GT_joints_2d.to(device))
+            criterion_vertices = loss_vertices(pred_vertices.to(device), GT_vertices.to(device))
+            criterion_cam = loss_cam(out_pred_cam.to(device), GT_cam.to(device))
 
-            out_criterion_beta = loss_beta(out_betas.to(device), GT_betas.to(device))
-            out_criterion_pose = loss_pose(out_body_pose_global_orient.to(device), GT_pose.to(device))
-            out_criterion_3d_joints = loss_3d_joints(pred_keypoints_3d.to(device), GT_joints_3d.to(device))
-            out_criterion_global_orient = loss_global_orient(out_global_orient.to(device), GT_global_orient.to(device))
-            out_criterion_2d_joints = loss_2d_joints(pred_keypoints_2d.to(device),GT_joints_2d.to(device))
-
-            combined_loss = (0.3 * out_criterion_pose + 0.1 * out_criterion_beta + 0.2 * (
-                        out_criterion_3d_joints + out_criterion_global_orient + out_criterion_2d_joints)
-                             + 0.1 * loss_pose(out_pred_cam.to(device), GT_cam.to(device))) + out_criterion_vertices
+            combined_loss = (3 * criterion_pose + 1 * criterion_beta + 2 * (
+                        2 * criterion_3d + criterion_global_orient + criterion_2d)
+                             + 0.001 * criterion_cam + criterion_vertices)
 
             loss.update(combined_loss)
-            loss_sumbeta.update(out_criterion_beta)
-            loss_sumpose.update(out_criterion_pose)
-            loss_3d.update(out_criterion_3d_joints)
-            loss_2d.update(out_criterion_2d_joints)
-            loss_cam.update(loss_pose(out_pred_cam.to(device), GT_cam.to(device)))
-            loss_v.update(out_criterion_vertices)
+            loss_sumbeta.update(criterion_beta)
+            loss_sumpose.update(criterion_pose)
+            loss_3d.update(criterion_3d)
+            loss_2d.update(criterion_2d)
+            loss_camera.update(criterion_cam)
+            loss_v.update(criterion_vertices)
             # if sample_num > 1200:
             #     break
 
@@ -363,7 +340,7 @@ def validate_epoch(epoch, test_dataloader, model):
         f'\t3d_Loss: {loss_3d.avg:.5f} |'
         f'\t2d_Loss: {loss_2d.avg:.5f} |'
         f'\tv_Loss: {loss_v.avg:.5f} |'
-        f'\tcamera_Loss: {loss_cam.avg:.5f} |'
+        f'\tcamera_Loss: {loss_camera.avg:.5f} |'
     )
     return loss.avg
 

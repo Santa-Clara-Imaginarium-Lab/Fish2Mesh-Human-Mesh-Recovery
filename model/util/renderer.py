@@ -180,6 +180,8 @@ class Renderer:
             image = image + torch.tensor([0.485, 0.456, 0.406], device=image.device).reshape(3,1,1)
             image = image.permute(1, 2, 0).cpu().numpy()
 
+        # cv2.imwrite('input.png', 255 * image)
+
         renderer = pyrender.OffscreenRenderer(viewport_width=image.shape[1],
                                               viewport_height=image.shape[0],
                                               point_size=1.0)

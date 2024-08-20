@@ -74,7 +74,7 @@ def parse_args(argv):
     )
     parser.add_argument("--cuda", default=True, action="store_true", help="Use CUDA if available")
     parser.add_argument(
-        "--checkpoint", type=str, default="../save/54.ckpt",
+        "--checkpoint", type=str, default="../save/11.ckpt",
         help="Path to the saved checkpoint file."
     )
 
@@ -126,22 +126,27 @@ def test_epoch(test_dataloader, model, smpl_model, device):
             Images, GT_npy = d
             Images = Images.to(device)
 
-            out_net = model(Images)
+            out = model(Images)
+            out_global_orient = out['out_global_orient']
+            out_body_pose = out['out_body_pose']
+            out_betas = out['out_betas']
+            out_pred_cam = out['out_pred_cam']
+            pred_keypoints_3d = out['pred_keypoints_3d']
+            pred_keypoints_2d = out['pred_keypoints_2d']
+            pred_vertices = out['pred_vertices']
 
-            out_global_orient = out_net[:, :, 0:3 * 3].view(-1, 1, 3, 3)
-            out_body_pose_global_orient = out_net[:, :, 3 * 3: 3 * 3 + 23 * 3 * 3].view(-1, 23, 3, 3)
-            out_betas = out_net[:, :, 3 * 3 + 23 * 3 * 3: 10 + 3 * 3 + 23 * 3 * 3].view(-1, 10)
-            out_pred_cam = out_net[:, :, 10 + 3 * 3 + 23 * 3 * 3:].view(-1, 3)
-
-            GT_joints_3d = GT_npy['pred_keypoints_3d'].float().view(-1, 44, 3)
-            GT_pose = GT_npy['pred_smpl_params']['global_orient'].float().view(-1, 1, 3, 3)
-            GT_global_orient = GT_npy['pred_smpl_params']['body_pose'].float().view(-1, 23, 3, 3)
+            GT_joints_3d = GT_npy['pred_keypoints_3d'].float().view(-1, 44, 3) / 1
+            GT_joints_2d = GT_npy['pred_keypoints_2d'].float().view(-1, 44, 2) / 1
+            GT_global_orient = GT_npy['pred_smpl_params']['global_orient'].float().view(-1, 1, 3, 3)
+            GT_pose = GT_npy['pred_smpl_params']['body_pose'].float().view(-1, 23, 3, 3)
             GT_betas = GT_npy['pred_smpl_params']['betas'].float().view(-1, 10)
             GT_cam = GT_npy['pred_cam_t'].float().view(-1, 3)
+            GT_vertices = GT_npy['pred_vertices'].float().view(-1, 6890, 3)
 
-            smpl_output = smpl_model(global_orient=out_global_orient, body_pose=out_body_pose_global_orient, betas=out_betas, pose2rot=False)
-            pred_keypoints_3d = smpl_output.joints
-            pred_vertices = smpl_output.vertices
+            # # smpl_output = smpl_model(global_orient=GT_global_orient.to(device), body_pose=GT_pose.to(device), betas=GT_betas.to(device), pose2rot=False)
+            #
+            # pred_keypoints_3d = smpl_output.joints
+            # pred_vertices = smpl_output.vertices
 
             loss_beta = torch.nn.MSELoss(reduction='mean')
             loss_pose = torch.nn.MSELoss(reduction='mean')
@@ -149,27 +154,35 @@ def test_epoch(test_dataloader, model, smpl_model, device):
             loss_3d_joints = torch.nn.L1Loss(reduction='mean')
 
             out_criterion_beta = loss_beta(out_betas.to(device), GT_betas.to(device))
-            out_criterion_pose = loss_pose(out_body_pose_global_orient.to(device), GT_pose.to(device))
+            out_criterion_pose = loss_pose(out_body_pose.to(device), GT_pose.to(device))
             out_criterion_3d_joints = loss_3d_joints(pred_keypoints_3d.to(device), GT_joints_3d.to(device))
             out_criterion_global_orient = loss_global_orient(out_global_orient.to(device), GT_global_orient.to(device))
 
-            combined_loss = (0.03 * out_criterion_pose + 0.01 * out_criterion_beta + 0.2 * (
-                        out_criterion_3d_joints + out_criterion_global_orient) + 0.1 * loss_pose(out_pred_cam.to(device), GT_cam.to(device)))
 
             MPJPE_loss = mpjpe_cal(pred_keypoints_3d.to(device),GT_joints_3d.to(device))
 
-            regression_img = renderer(pred_vertices[0].detach().cpu().numpy(),
+            convertIMG = denormalize(Images[0].cpu(), [0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            # Permute and convert to NumPy array
+            image_np = convertIMG.permute(1, 2, 0).numpy()
+
+            # Convert to 0-255 range
+            image_np = np.clip(255 * image_np, 0, 255).astype(np.uint8)
+
+            # Save the image
+            cv2.imwrite('input.png', image_np)
+
+            regression_img = renderer(pred_vertices[0].detach().cpu().numpy(), #  GT_npy['pred_vertices'][0][0]
                                       GT_cam[0].detach().cpu().numpy(), # GT_cam[0].detach().cpu().numpy()
                                       torch.zeros((3, 224, 224), dtype=torch.float32), #Images[0].cpu(),
                                       mesh_base_color=LIGHT_BLUE,
                                       scene_bg_color=(1, 1, 1),
                                       )
-            convertIMG = denormalize(Images[0].cpu(), [0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+
             final_img = np.concatenate([convertIMG.permute(1, 2, 0), regression_img], axis=1)
             cv2.imwrite('regression_img.png', 255 * final_img)
             loss_MPJPE.update(MPJPE_loss)
 
-            loss.update(combined_loss)
+            # loss.update(combined_loss)
             loss_sumbeta.update(out_criterion_beta)
             loss_sumpose.update(out_criterion_pose)
             loss_3d.update(out_criterion_3d_joints)
@@ -177,7 +190,7 @@ def test_epoch(test_dataloader, model, smpl_model, device):
 
     print(
         f"Test: Average losses:"
-        f"\tLoss: {loss.avg:.7f} |"
+        # f"\tLoss: {loss.avg:.7f} |"
         f'\tbeta_Loss: {loss_sumbeta.avg:.7f} |'
         f'\tpose_Loss: {loss_sumpose.avg:.7f} |'
         f'\t3d_Loss: {loss_3d.avg:.7f} |'

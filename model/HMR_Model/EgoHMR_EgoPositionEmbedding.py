@@ -1,13 +1,16 @@
+from torch.cuda import device
 from torch.nn.init import trunc_normal_
 from model.layers.encoder_block import *
 from model.layers.decoder_block import *
 from model.util.util import PatchEmbed, PatchMerging
 from model.layers.regressor_head import *
+from model.util.geometry import *
+from model.util.smpl_wrapper import *
 
 
 class EgoHMR_pos(nn.Module):
     def __init__(self,
-                 pretrain_img_size=256,
+                 pretrain_img_size=224,
                  patch_size=2,
                  in_chans=3,
                  embed_dim=48,
@@ -76,21 +79,16 @@ class EgoHMR_pos(nn.Module):
         # 9 + 207 + 10 + 3 = 229
         self.regressHead = nn.Linear(2 * 14 * 14, 229)
 
-        self.pos_embedding = nn.Parameter(torch.zeros(3, 224, 224))
+        self.pos_embedding = nn.Parameter(torch.zeros(3, self.pretrain_img_size, self.pretrain_img_size))
+        SMPL_CONFIG = {'data_dir': '/home/imaginarium/.cache/4DHumans/data/',
+                       'model_path': '/home/imaginarium/.cache/4DHumans/data//smpl',
+                       'gender': 'neutral',
+                       'num_body_joints': 23,
+                       'joint_regressor_extra': '/home/imaginarium/.cache/4DHumans/data//SMPL_to_J19.pkl',
+                       'mean_params': '/home/imaginarium/.cache/4DHumans/data//smpl_mean_params.npz'}
+        self.smpl_model = SMPL(**SMPL_CONFIG)
 
-    def init_weights(self):
-        for m in self.modules():
-            if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d)):
-                nn.init.kaiming_normal_(m.weight)
-                if m.bias is not None:
-                    nn.init.zeros_(m.bias)
-            elif isinstance(m, nn.Linear):
-                trunc_normal_(m.weight, std=.02)
-                if isinstance(m, nn.Linear) and m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.LayerNorm):
-                nn.init.constant_(m.bias, 0)
-                nn.init.constant_(m.weight, 1.0)
+
 
     def forward(self, images):
         """Forward function."""
@@ -125,4 +123,29 @@ class EgoHMR_pos(nn.Module):
         # global_orient (b x 1 x 3 x 3), body_pose (b x 23 x 3 x 3), betas (b x 10), pred_cam (b x 3)
         # 9 + 207 + 10 + 3 = 229
 
-        return encoder_head #.view(-1, 243, 200, 192)
+        out_global_orient = encoder_head[:, :, 0:3 * 3].view(-1, 1, 3, 3)
+        out_body_pose = encoder_head[:, :, 3 * 3: 3 * 3 + 23 * 3 * 3].view(-1, 23, 3, 3)
+        out_betas = encoder_head[:, :, 3 * 3 + 23 * 3 * 3: 10 + 3 * 3 + 23 * 3 * 3].view(-1, 10)
+        out_pred_cam = encoder_head[:, :, 10 + 3 * 3 + 23 * 3 * 3:].view(-1, 3)
+
+        # regression SMPL->joints
+        smpl_output = self.smpl_model(**{'global_orient': out_global_orient, 'body_pose': out_body_pose, 'betas': out_betas},
+                                 pose2rot=False)
+        pred_keypoints_3d = smpl_output.joints
+        pred_vertices = smpl_output.vertices
+
+        focal_length = 5000 * torch.ones(images.shape[0], 2,device='cuda:1', dtype=torch.float32)
+        focal_length = focal_length.reshape(-1, 2)
+        pred_keypoints_2d = perspective_projection(pred_keypoints_3d, translation=out_pred_cam,
+                                                   focal_length=focal_length / self.pretrain_img_size)
+
+        out ={}
+        out['out_global_orient'] = out_global_orient
+        out['out_body_pose'] = out_body_pose
+        out['out_betas'] = out_betas
+        out['out_pred_cam'] = out_pred_cam
+        out['pred_keypoints_3d'] = pred_keypoints_3d
+        out['pred_keypoints_2d'] = pred_keypoints_2d
+        out['pred_vertices'] = pred_vertices
+
+        return out
