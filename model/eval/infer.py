@@ -74,7 +74,7 @@ def parse_args(argv):
     )
     parser.add_argument("--cuda", default=True, action="store_true", help="Use CUDA if available")
     parser.add_argument(
-        "--checkpoint", type=str, default="../save/11.ckpt",
+        "--checkpoint", type=str, default="../save/142.ckpt",
         help="Path to the saved checkpoint file."
     )
 

@@ -66,6 +66,6 @@ for input_file in input_files:
 
     # remove temporary files
     # os.remove(temp_output1)
-    os.remove(temp_output2)
+    # os.remove(temp_output2)
 
 print("done. all files processed!")
