@@ -1,4 +1,6 @@
 # Fish2Mesh Transformer: 3D Human Mesh Reconstruction from Egocentric Vision
+![Demo GIF](asset/output_video-ezgif.com-video-to-gif-converter.gif)
+
 
 # News!
 - Jun 2024: Our new work: Fish2Mesh Transformer: 3D Human Mesh Reconstruction from Egocentric Vision
