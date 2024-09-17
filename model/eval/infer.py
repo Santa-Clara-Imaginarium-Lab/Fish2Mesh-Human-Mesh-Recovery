@@ -63,7 +63,7 @@ def ensure_single_dimension(gt_files):
 def parse_args(argv):
     parser = argparse.ArgumentParser(description="Test script for trained model.")
     parser.add_argument(
-        "-td", "--testing_Data", type=str, default="/media/imaginarium/2T/V2/test/",
+        "-td", "--testing_Data", type=str, default="/media/imaginarium/2T/V3/temp_test/",
         help="Path to the testing dataset."
     )
     parser.add_argument(
@@ -171,7 +171,7 @@ def test_epoch(test_dataloader, model, smpl_model, device):
             # Save the image
             cv2.imwrite('input.png', image_np)
 
-            regression_img = renderer(pred_vertices[0].detach().cpu().numpy(), #  GT_npy['pred_vertices'][0][0]
+            regression_img = renderer(GT_npy['pred_vertices'][0][0].detach().cpu().numpy(), #  GT_npy['pred_vertices'][0][0] pred_vertices[0]
                                       GT_cam[0].detach().cpu().numpy(), # GT_cam[0].detach().cpu().numpy()
                                       torch.zeros((3, 224, 224), dtype=torch.float32), #Images[0].cpu(),
                                       mesh_base_color=LIGHT_BLUE,

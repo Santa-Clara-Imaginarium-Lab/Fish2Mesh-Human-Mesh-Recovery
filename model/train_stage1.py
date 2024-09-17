@@ -97,7 +97,7 @@ def parse_args(argv):
                         help="gradient clipping max norm (default: %(default)s")
 
     parser.add_argument("--checkpoint",
-                        default="",  # ./train0008/10.ckpt
+                        default="./save/142.ckpt",  # ./train0008/10.ckpt
                         type=str, help="Path to a checkpoint")
 
     args = parser.parse_args(argv)

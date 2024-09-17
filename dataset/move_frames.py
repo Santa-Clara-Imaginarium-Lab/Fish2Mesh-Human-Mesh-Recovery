@@ -17,7 +17,7 @@ def copy_and_rename_frames(input_folder, output_folder):
 
     for subfolder in os.listdir(input_folder):
         subfolder_path = os.path.join(input_folder, subfolder)
-        if os.path.isdir(subfolder_path) and subfolder.startswith("processed_headset_"):
+        if os.path.isdir(subfolder_path) : # and subfolder.startswith("processed_headset_") subfolder.startswith("env")
             last_number = get_last_number(subfolder)
             frame_files = sorted(os.listdir(subfolder_path))  # Sort to maintain frame order
 
@@ -25,6 +25,9 @@ def copy_and_rename_frames(input_folder, output_folder):
                 if frame_file.endswith((".png", ".jpg", ".jpeg")):  # Add more image extensions if needed
                     frame_path = os.path.join(subfolder_path, frame_file)
                     new_frame_name = f"person_{last_number}_frame_{idx + 1}.png"
+                    # for EHCP
+                    # new_frame_name = f"{subfolder}_frame_{idx + 1}.png"
+
                     new_frame_path = os.path.join(output_folder, new_frame_name)
                     if not os.path.exists(new_frame_path):
                         shutil.copy(frame_path, new_frame_path)
@@ -32,7 +35,9 @@ def copy_and_rename_frames(input_folder, output_folder):
 
 
 # Example usage
-input_folder = '/media/imaginarium/12T/Dataset/headset_frames/'  # Folder containing subfolders like processed_headset_1, processed_headset_2, etc.
+input_folder = '/media/imaginarium/12T/Dataset/SyncDataset/headset_frames/'  # Folder containing subfolders like processed_headset_1, processed_headset_2, etc.
+# output_folder = '/media/imaginarium/12T/Dataset/headset_frames_all/'  # Folder to save renamed frames
+# input_folder = '/media/imaginarium/12T/Dataset/temp_headset_frames/'  # Folder containing subfolders like processed_headset_1, processed_headset_2, etc.
 output_folder = '/media/imaginarium/12T/Dataset/headset_frames_all/'  # Folder to save renamed frames
 
 copy_and_rename_frames(input_folder, output_folder)
