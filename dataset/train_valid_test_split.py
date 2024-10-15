@@ -12,9 +12,10 @@ image_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(img_folder) 
 random.shuffle(image_files)
 
 # Define the split sizes
-train_size = 270074 - 5000 - 5000
+
 valid_size = 5000
-test_size = 5000
+test_size = 7000
+train_size = 490501 - valid_size - test_size
 
 # Split the list
 train_images = image_files[:train_size]

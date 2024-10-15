@@ -19,12 +19,15 @@ def copy_and_rename_frames(input_folder, output_folder):
         subfolder_path = os.path.join(input_folder, subfolder)
         if os.path.isdir(subfolder_path) : # and subfolder.startswith("processed_headset_") subfolder.startswith("env")
             last_number = get_last_number(subfolder)
+            # if int(last_number) > 1:
+            #     continue
             frame_files = sorted(os.listdir(subfolder_path))  # Sort to maintain frame order
 
             for idx, frame_file in enumerate(frame_files):
                 if frame_file.endswith((".png", ".jpg", ".jpeg")):  # Add more image extensions if needed
                     frame_path = os.path.join(subfolder_path, frame_file)
-                    new_frame_name = f"person_{last_number}_frame_{idx + 1}.png"
+                    new_frame_name = frame_file
+                    # new_frame_name = f"person_{last_number}_frame_{idx + 1}.png"
                     # for EHCP
                     # new_frame_name = f"{subfolder}_frame_{idx + 1}.png"
 

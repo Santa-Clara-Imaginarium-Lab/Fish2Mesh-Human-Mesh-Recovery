@@ -28,9 +28,16 @@ def copy_gt_files(image_folder, gt_folder, new_folder):
 
 
 # Define the folders
-image_folder = '/media/imaginarium/2T/ECHP/frames/'
+
 gt_folder = '/media/imaginarium/2T/new_name_label/'
-new_folder = '/media/imaginarium/2T/ECHP/GT/'
+# image_folder = '/media/imaginarium/2T/ECHP/frames/'
+# new_folder = '/media/imaginarium/2T/ECHP/GT/'
+
+# image_folder = '/media/imaginarium/2T/Ego4D/frames/'
+# new_folder = '/media/imaginarium/2T/Ego4D/GT/'
+
+image_folder = '/media/imaginarium/2T/V3/test/'
+new_folder = '/media/imaginarium/2T/V3/GT/'
 
 # Call the function
 copy_gt_files(image_folder, gt_folder, new_folder)

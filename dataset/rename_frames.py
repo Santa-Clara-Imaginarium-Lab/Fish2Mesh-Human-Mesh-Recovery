@@ -2,9 +2,10 @@ import os
 import shutil
 
 # Define the root folder containing subfolders
-root_folder = '/media/imaginarium/12T/Dataset/main_camera_frames'
-destination_folder = '/media/imaginarium/12T/Dataset/SyncDataset/3rd_frames'  # Folder where the new folders with renamed images will be created
-
+root_folder = '/media/imaginarium/12T/Dataset/temp_headset_frames'
+destination_folder = '/media/imaginarium/12T/Dataset/SyncDataset/headset_frames'  # Folder where the new folders with renamed images will be created
+# root_folder = '/media/imaginarium/12T/Dataset/temp_main_frames'
+# destination_folder = '/media/imaginarium/12T/Dataset/SyncDataset/3rd_frames'  # Folder where the new folders with renamed images will be created
 
 def get_image_number(filename):
     # Split the filename by underscores and extract the last part (before .png)
@@ -29,9 +30,9 @@ def rename_and_copy_images(folder_path, new_folder_path, person_id):
     # Rename and copy files
     FrameID = 1
     for index, file in enumerate(files):
-        if index >0 and index % 1000 == 0:
-            print(FrameID, ' skip to snyc 29.97FPS')
-            continue
+        # if index >0 and index % 1000 == 0:
+        #     print(FrameID, ' skip to snyc 29.97FPS')
+        #     continue
         old_path = os.path.join(folder_path, file)
         new_filename = f'person_{person_id}_frame_{FrameID}.png'
         new_path = os.path.join(new_folder_path, new_filename)
@@ -47,7 +48,7 @@ def main():
             # Extract the person ID from the folder name
             person_id = folder_name.split('_')[-1]
 
-            if int(person_id) < 14:
+            if int(person_id) > 18:
                 # Create a new folder path for the person ID
                 new_folder_path = os.path.join(destination_folder, f'person_{person_id}')
 

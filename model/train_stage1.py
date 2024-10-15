@@ -61,7 +61,7 @@ def parse_args(argv):
     parser = argparse.ArgumentParser(description="Example training script.")
 
     parser.add_argument(
-        "-td", "--testing_Data", type=str, default='/media/imaginarium/2T/V2/valid/',
+        "-td", "--testing_Data", type=str, default='/media/imaginarium/2T/V3/valid/',
         help="testing dataset"
     )
 
@@ -97,7 +97,7 @@ def parse_args(argv):
                         help="gradient clipping max norm (default: %(default)s")
 
     parser.add_argument("--checkpoint",
-                        default="./save/142.ckpt",  # ./train0008/10.ckpt
+                        default="./save/283.ckpt",  # ./train0008/10.ckpt
                         type=str, help="Path to a checkpoint")
 
     args = parser.parse_args(argv)
@@ -402,9 +402,9 @@ def main(argv):
 
         net.load_state_dict(new_state_dict)
 
-        optimizer.load_state_dict(checkpoint["optimizer"])
+        # optimizer.load_state_dict(checkpoint["optimizer"])
         # aux_optimizer.load_state_dict(checkpoint["aux_optimizer"])
-        lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
+        # lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
 
     best_loss = float("inf")
     for epoch in range(last_epoch, args.epochs):
