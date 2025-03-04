@@ -13,13 +13,13 @@ from model.util.smpl_wrapper import SMPL
 from model.util.geometry import *
 from model.util.renderer import Renderer
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(description="Test script for trained model.")
 
     parser.add_argument(
-        "--checkpoint", type=str, default="../save/142.ckpt",
+        "--checkpoint", type=str, default="../save/486.ckpt",
         help="Path to the saved checkpoint file."
     )
     parser.add_argument("--cuda", default=True, action="store_true", help="Use CUDA if available")
@@ -74,12 +74,26 @@ def infer_model(images,test_transforms,model,renderer,device, args):
         pred_keypoints_2d = out['pred_keypoints_2d']
         pred_vertices = out['pred_vertices']
 
-        regression_img = renderer(pred_vertices[0].detach().cpu().numpy(),  # GT_npy['pred_vertices'][0][0]
-                                  out_pred_cam[0].detach().cpu().numpy(),  # GT_cam[0].detach().cpu().numpy()
-                                  torch.zeros((3, 256, 256), dtype=torch.float32),  # Images[0].cpu(),
+        # ourResults = '/media/imaginarium/12T/TIANMA/visualResult/person_19_frame_769/our/output_data.pkl'
+        #
+        # # Open and load the pickle file
+        # with open(ourResults, 'rb') as file:
+        #     data = pickle.load(file)
+        #
+        # pred_vertices = data['pred_vertices']
+        # GT_npy = data['GT_npy']
+        # GT_cam = GT_npy['pred_cam_t'].float().view(-1, 3)[0].numpy()
+        # GT_cam2 = out_pred_cam[0].detach().cpu().numpy()
+
+        regression_img = renderer(pred_vertices[0].detach().cpu().numpy(),  # GT_npy['pred_vertices'][0][0] pred_vertices[0].detach().cpu().numpy()
+                                  out_pred_cam[0].detach().cpu().numpy(),  # GT_cam[0].detach().cpu().numpy() out_pred_cam[0].detach().cpu().numpy()
+                                  torch.zeros((3, 512, 512), dtype=torch.float32),  # Images[0].cpu(),
                                   mesh_base_color=LIGHT_BLUE,
                                   scene_bg_color=(1, 1, 1),
                                   )
+        # plt.imshow(regression_img)
+        # plt.axis('off')  # Hide axis
+        # plt.show()
 
         # print('2d:',pred_keypoints_2d)
     return regression_img
@@ -121,7 +135,7 @@ if __name__ == '__main__':
     # cap = cv2.VideoCapture(0)
 
     # Path to your video file
-    video_path = '/media/imaginarium/12T/Dataset/headset_videos/processed_headset_8.mp4'
+    video_path = '/media/imaginarium/12T/Dataset/headset_videos/processed_headset_25.mp4'
 
     # Open the video file
     cap = cv2.VideoCapture(video_path)
@@ -129,12 +143,12 @@ if __name__ == '__main__':
 
     # Get video properties
     fps = cap.get(cv2.CAP_PROP_FPS)
-    width = 256*2
-    height = 256
+    width = 512*2
+    height = 512
 
     # Initialize VideoWriter
     fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Codec for video file
-    out = cv2.VideoWriter('output_video8.avi', fourcc, fps,
+    out = cv2.VideoWriter('output_video23_2.avi', fourcc, fps,
                           (width, height))
 
     while True:
@@ -170,6 +184,7 @@ if __name__ == '__main__':
         regression_img = infer_model(resized_frame,test_transforms,model,renderer,device, args)
         regression_img = (regression_img * 255).astype(np.uint8)
 
+        resized_frame = cv2.resize(frame, (512, 512))
         final_img = np.concatenate([resized_frame, regression_img], axis=1)
         # Write the processed frame to the video file
         out.write(final_img)

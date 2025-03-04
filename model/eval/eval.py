@@ -11,6 +11,8 @@ import pickle
 from model.HMR_Model.EgoHMR_EgoPositionEmbedding import EgoHMR_pos
 from model.util.smpl_wrapper import SMPL
 from model.util.geometry import *
+# from model.util.geometry import *
+from model.util.renderer import Renderer
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -119,21 +121,19 @@ def visualize_and_save(out, GT_npy, image):
     ax = fig.add_subplot(111, projection='3d')
 
     # Predicted
-    ax.scatter(pred_vertices[:, 0], pred_vertices[:, 1], pred_vertices[:, 2], alpha=0.1, color='skyblue',
-               label='Our Pred Vertices')
-    ax.scatter(pred_keypoints_3d[:, 0], pred_keypoints_3d[:, 1], pred_keypoints_3d[:, 2], color='blue',
-               label='Our Pred Keypoints')
+    ax.scatter(pred_vertices[:, 0], pred_vertices[:, 1], pred_vertices[:, 2], alpha=0.1, color='skyblue')
+    ax.scatter(pred_keypoints_3d[:, 0], pred_keypoints_3d[:, 1], pred_keypoints_3d[:, 2], color='blue')
 
     # Ground Truth
-    ax.scatter(GT_vertices[:, 0], GT_vertices[:, 1], GT_vertices[:, 2], alpha=0.1, color='pink', label='GT Vertices')
-    ax.scatter(GT_joints_3d[:, 0], GT_joints_3d[:, 1], GT_joints_3d[:, 2], color='red', label='GT Joints')
+    ax.scatter(GT_vertices[:, 0], GT_vertices[:, 1], GT_vertices[:, 2], alpha=0.1, color='pink')
+    ax.scatter(GT_joints_3d[:, 0], GT_joints_3d[:, 1], GT_joints_3d[:, 2], color='red')
 
     ax.set_title('Predicted and GT Vertices and Keypoints')
     ax.legend()
     set_view(ax, elevation=eleValue, azimuth=aziValue)  # Set viewing angle
     plt.savefig('combined_vertices_keypoints.png')
     plt.show(block=False)
-    plt.pause(2000)
+    # plt.pause(2000)
     plt.close()
 
     # Save the input image as a separate PNG file
@@ -143,6 +143,8 @@ def visualize_and_save(out, GT_npy, image):
     plt.axis('off')  # Turn off axis
     plt.savefig('input_image.png')
     plt.close()
+
+
 
     # Save all information in a PKL file
     with open('output_data.pkl', 'wb') as f:
@@ -160,7 +162,7 @@ def visualize_and_save(out, GT_npy, image):
 def parse_args(argv):
     parser = argparse.ArgumentParser(description="Test script for trained model.")
     parser.add_argument(
-        "-td", "--testing_Data", type=str, default="/media/imaginarium/2T/visual/",
+        "-td", "--testing_Data", type=str, default="/media/imaginarium/2T/1/",
         help="Path to the testing dataset."
     )
     parser.add_argument(
@@ -239,6 +241,14 @@ def test_epoch(test_dataloader, model, smpl_model, device):
             GT_vertices = GT_npy['pred_vertices'].float().view(-1, 6890, 3)
 
             visualize_and_save(out, GT_npy, Images[0])
+
+            faceArray = np.load('./model_faces.npy')
+            renderer = Renderer(faces=faceArray)
+            camera_translation = GT_cam.numpy().copy()
+            LIGHT_BLUE = (0.65098039, 0.74117647, 0.85882353)
+            tmesh = renderer.vertices_to_trimesh(pred_vertices.cpu().numpy()[0], camera_translation, LIGHT_BLUE)
+            # os.makedirs(args.out_folder + '/' + folder_name + '/obj/', exist_ok=True)
+            tmesh.export(os.path.join('./our.obj'))
 
 
             #

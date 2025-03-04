@@ -195,36 +195,36 @@ class Renderer:
         mesh = trimesh.Trimesh(vertices.copy(), self.faces.copy())
 
         # Plot the mesh
-        vertices_scaled = vertices[:, [0, 2, 1]].copy()  # Switch to (Y, Z, X)
-        vertices_scaled[:, 2] *= -1
-
-        # Calculate the range for each dimension
-        x_range = max(vertices_scaled[:, 0]) - min(vertices_scaled[:, 0])
-        y_range = max(vertices_scaled[:, 1]) - min(vertices_scaled[:, 1])
-        z_range = max(vertices_scaled[:, 2]) - min(vertices_scaled[:, 2])
-
-        # Determine the maximum range
-        max_range = max(x_range, y_range, z_range)
-
-        # Calculate center of the mesh
-        x_center = (max(vertices_scaled[:, 0]) + min(vertices_scaled[:, 0])) / 2
-        y_center = (max(vertices_scaled[:, 1]) + min(vertices_scaled[:, 1])) / 2
-        z_center = (max(vertices_scaled[:, 2]) + min(vertices_scaled[:, 2])) / 2
-
-        # Create a figure and 3D axis
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-
-        # Create a Poly3DCollection
-        poly3d = Poly3DCollection([vertices_scaled[face] for face in self.faces], alpha=.25, linewidths=1, edgecolors='r')
-        ax.add_collection3d(poly3d)
-
-        # Set limits with equal range
-        ax.set_xlim(x_center - max_range / 2, x_center + max_range / 2)
-        ax.set_ylim(y_center - max_range / 2, y_center + max_range / 2)
-        ax.set_zlim(z_center - max_range / 2, z_center + max_range / 2)
-
-        plt.show()
+        # vertices_scaled = vertices[:, [0, 2, 1]].copy()  # Switch to (Y, Z, X)
+        # vertices_scaled[:, 2] *= -1
+        #
+        # # Calculate the range for each dimension
+        # x_range = max(vertices_scaled[:, 0]) - min(vertices_scaled[:, 0])
+        # y_range = max(vertices_scaled[:, 1]) - min(vertices_scaled[:, 1])
+        # z_range = max(vertices_scaled[:, 2]) - min(vertices_scaled[:, 2])
+        #
+        # # Determine the maximum range
+        # max_range = max(x_range, y_range, z_range)
+        #
+        # # Calculate center of the mesh
+        # x_center = (max(vertices_scaled[:, 0]) + min(vertices_scaled[:, 0])) / 2
+        # y_center = (max(vertices_scaled[:, 1]) + min(vertices_scaled[:, 1])) / 2
+        # z_center = (max(vertices_scaled[:, 2]) + min(vertices_scaled[:, 2])) / 2
+        #
+        # # Create a figure and 3D axis
+        # fig = plt.figure()
+        # ax = fig.add_subplot(111, projection='3d')
+        #
+        # # Create a Poly3DCollection
+        # poly3d = Poly3DCollection([vertices_scaled[face] for face in self.faces], alpha=.25, linewidths=1, edgecolors='r')
+        # ax.add_collection3d(poly3d)
+        #
+        # # Set limits with equal range
+        # ax.set_xlim(x_center - max_range / 2, x_center + max_range / 2)
+        # ax.set_ylim(y_center - max_range / 2, y_center + max_range / 2)
+        # ax.set_zlim(z_center - max_range / 2, z_center + max_range / 2)
+        #
+        # plt.show()
 
         # mesh.show()
         if side_view:
@@ -240,7 +240,7 @@ class Renderer:
         mesh.apply_transform(rot)
         mesh = pyrender.Mesh.from_trimesh(mesh, material=material)
 
-        scene = pyrender.Scene(bg_color=[*scene_bg_color, 0.0],
+        scene = pyrender.Scene(bg_color=[*scene_bg_color, 1.0],
                                ambient_light=(0.3, 0.3, 0.3))
         scene.add(mesh, 'mesh')
 
