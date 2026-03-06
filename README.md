@@ -26,5 +26,8 @@ https://drive.google.com/file/d/1cYFB2-5fuEmbECJIAb-hDB3O0lw4rk70/view?usp=drive
 /dataset/ is the folder for data processing codes
 /model/ is the deep learning model
 
+CheckPoint:
+
+https://drive.google.com/file/d/1ZwapQOiDGQJYiDx78hI7uUVErmxWaakJ/view?usp=sharing
 
 
